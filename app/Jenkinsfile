@@ -1,0 +1,92 @@
+pipeline {
+    agent { label 'linux-agent' }
+
+    parameters {
+        choice(
+            name: 'ENV',
+            choices: ['Development', 'Testing', 'Production'],
+            description: 'Select deployment environment'
+        )
+    }
+
+    stages {
+        stage('Checkout') {
+            steps {
+                checkout scm
+                echo 'Source code checked out'
+            }
+        }
+
+        stage('Build') {
+            steps {
+                echo 'Building application'
+                sh 'mkdir -p build'
+                sh 'cp app/index.html build/'
+            }
+        }
+
+        stage('Parallel Tests') {
+            parallel {
+                stage('File Test') {
+                    steps {
+                        sh 'test -f build/index.html'
+                        echo 'File test passed'
+                    }
+                }
+
+                stage('Content Test') {
+                    steps {
+                        sh "grep -q 'Hello from Jenkins CI/CD Pipeline!' build/index.html"
+                        echo 'Content test passed'
+                    }
+                }
+            }
+        }
+
+        stage('Package') {
+            steps {
+                sh 'tar -czf app-package.tar.gz build/'
+                echo 'Application packaged'
+            }
+        }
+
+        stage('Deploy to Development') {
+            when {
+                expression { params.ENV == 'Development' }
+            }
+            steps {
+                echo 'Deploying to Development environment'
+            }
+        }
+
+        stage('Deploy to Testing') {
+            when {
+                expression { params.ENV == 'Testing' }
+            }
+            steps {
+                echo 'Deploying to Testing environment'
+            }
+        }
+
+        stage('Deploy to Production') {
+            when {
+                expression { params.ENV == 'Production' }
+            }
+            steps {
+                echo 'Deploying to Production environment'
+            }
+        }
+    }
+
+    post {
+        success {
+            echo 'CI/CD Pipeline completed successfully!'
+        }
+        failure {
+            echo 'CI/CD Pipeline failed. Check the logs.'
+        }
+        always {
+            echo 'Pipeline execution finished.'
+        }
+    }
+}
